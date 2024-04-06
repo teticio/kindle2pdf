@@ -39,7 +39,6 @@ class Kindle2PDF:
         asin: str,
         font_size: int = 12,
         page_size: tuple[float, float] = A4,
-        dpi: int = 160,
     ) -> None:
         """
         Initializes the Kindle2PDF object with the specified ASIN and starts a reading session.
@@ -48,12 +47,10 @@ class Kindle2PDF:
             asin (str): The ASIN of the book to convert.
             font_size (int): The font size to use for rendering the book.
             page_size (tuple[float, float]): The size of the PDF pages.
-            dpi (int): The DPI to use for rendering images.
         """
         self.asin = asin
         self.font_size = font_size
         self.page_size = page_size
-        self.dpi = dpi
         self.session = self.start_reading_session()
 
     def start_reading_session(self) -> dict:
@@ -153,9 +150,9 @@ class Kindle2PDF:
             "fontFamily": "Bookerly",
             "fontSize": str(self.font_size),
             "lineHeight": "1.4",
-            "dpi": str(self.dpi),
-            "height": str(int(self.page_size[1] * self.dpi / 72)),
-            "width": str(int(self.page_size[0] * self.dpi / 72)),
+            "dpi": 72,
+            "height": str(int(self.page_size[1] * 72)),
+            "width": str(int(self.page_size[0] * 72)),
             "marginBottom": "0",
             "marginLeft": "9",
             "marginRight": "9",
@@ -253,8 +250,6 @@ class Kindle2PDF:
         """
         for page in pages:
             for child in page["children"]:
-                transform = [_ * 72 / self.dpi for _ in child["transform"]]
-
                 if child["type"] == "run":
                     font = None
                     for font in fonts:
@@ -272,7 +267,7 @@ class Kindle2PDF:
 
                     svg_content = f"""<?xml version="1.0" standalone="no"?>
                     <svg version="1.1" xmlns="http://www.w3.org/2000/svg">
-                        <g transform="matrix({transform[0]}, {transform[1]}, {transform[2]}, {transform[3]}, {transform[4]}, {transform[5]})">
+                        <g transform="matrix({child["transform"][0]}, {child["transform"][1]}, {child["transform"][2]}, {child["transform"][3]}, {child["transform"][4]}, {child["transform"][5]})">
                             {glyphs}
                         </g>
                     </svg>
@@ -288,10 +283,10 @@ class Kindle2PDF:
                         x = child["transform"][4]
                         y = self.page_size[1] - (
                             child["transform"][5]
-                            + child["rect"]["bottom"] * transform[3]
+                            + child["rect"]["bottom"] * child["transform"][3]
                         )
-                        width = child["rect"]["right"] * transform[0]
-                        height = child["rect"]["bottom"] * transform[3]
+                        width = child["rect"]["right"] * child["transform"][0]
+                        height = child["rect"]["bottom"] * child["transform"][3]
                         pdf_canvas.drawImage(
                             image=tmp.name, x=x, y=y, width=width, height=height
                         )
