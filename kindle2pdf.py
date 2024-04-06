@@ -32,14 +32,16 @@ class Kindle2PDF:
         session (dict): A dictionary containing session information for book rendering.
     """
 
-    def __init__(self, asin: str) -> None:
+    def __init__(self, asin: str, font_size=12) -> None:
         """
         Initializes the Kindle2PDF object with the specified ASIN and starts a reading session.
 
         Args:
             asin (str): The ASIN of the book to convert.
+            font_size (int): The font size to use for rendering the book.
         """
         self.asin = asin
+        self.font_size = font_size
         self.session = self.start_reading_session()
 
     def start_reading_session(self) -> dict:
@@ -137,11 +139,11 @@ class Kindle2PDF:
             "contentType": "FullBook",
             "revision": self.session["version"],
             "fontFamily": "Bookerly",
-            "fontSize": "8.91",
+            "fontSize": str(self.font_size),
             "lineHeight": "1.4",
             "dpi": "72",
-            "height": "842",
-            "width": "595",
+            "height": "842",  # A4 height in points
+            "width": "595",   # A4 width in points
             "marginBottom": "0",
             "marginLeft": "9",
             "marginRight": "9",
@@ -327,6 +329,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--asin", help="ASIN of the book to convert")
     parser.add_argument("--output", help="Output PDF file")
+    parser.add_argument("--font-size", help="Font size to use for rendering", default=12)
     args = parser.parse_args()
-    kindle2pdf = Kindle2PDF(args.asin)
-    kindle2pdf.render_book(args.output)
+    kindle2pdf = Kindle2PDF(asin=args.asin, font_size=args.font_size)
+    kindle2pdf.render_book(output_path=args.output)
