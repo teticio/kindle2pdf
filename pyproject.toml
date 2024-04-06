@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "kindle"
+version = "0.1.0"
+description = ""
+authors = ["Robert Dargavel Smith <teticio@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+reportlab = "^4.1.0"
+cryptography = "^42.0.5"
+ipykernel = "^6.29.4"
+ipywidgets = "7.7"
+svglib = "^1.5.1"
+browser-cookie3 = "^0.19.1"
+tqdm = "^4.66.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
