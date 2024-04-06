@@ -5,10 +5,12 @@ Kindle to PDF converter.
 import argparse
 import io
 import json
+import sys
 import tarfile
 import tempfile
 from base64 import b64decode
 from time import time
+from typing import Optional
 
 import requests
 from browser_cookie3 import chrome
@@ -32,16 +34,26 @@ class Kindle2PDF:
         session (dict): A dictionary containing session information for book rendering.
     """
 
-    def __init__(self, asin: str, font_size=12) -> None:
+    def __init__(
+        self,
+        asin: str,
+        font_size: int = 12,
+        page_size: tuple[float, float] = A4,
+        dpi: int = 160,
+    ) -> None:
         """
         Initializes the Kindle2PDF object with the specified ASIN and starts a reading session.
 
         Args:
             asin (str): The ASIN of the book to convert.
             font_size (int): The font size to use for rendering the book.
+            page_size (tuple[float, float]): The size of the PDF pages.
+            dpi (int): The DPI to use for rendering images.
         """
         self.asin = asin
         self.font_size = font_size
+        self.page_size = page_size
+        self.dpi = dpi
         self.session = self.start_reading_session()
 
     def start_reading_session(self) -> dict:
@@ -96,7 +108,7 @@ class Kindle2PDF:
         )
         response = response.json()
 
-        if not response["isOwned"]:
+        if not response.get("isOwned", False):
             print(f"Book {self.asin} is not owned by you.")
             return {}
         auth = response["karamelToken"]
@@ -141,9 +153,9 @@ class Kindle2PDF:
             "fontFamily": "Bookerly",
             "fontSize": str(self.font_size),
             "lineHeight": "1.4",
-            "dpi": "72",
-            "height": "842",  # A4 height in points
-            "width": "595",   # A4 width in points
+            "dpi": str(self.dpi),
+            "height": str(int(self.page_size[1] * self.dpi / 72)),
+            "width": str(int(self.page_size[0] * self.dpi / 72)),
             "marginBottom": "0",
             "marginLeft": "9",
             "marginRight": "9",
@@ -227,9 +239,8 @@ class Kindle2PDF:
                 decryptor.update(encrypted_data_without_tag) + decryptor.finalize()
             )
 
-    @staticmethod
     def render_pdf(
-        pages: dict, fonts: dict, images: dict, pdf_canvas: canvas.Canvas
+        self, pages: dict, fonts: dict, images: dict, pdf_canvas: canvas.Canvas
     ) -> None:
         """
         Renders the PDF pages using the decrypted images and text.
@@ -242,6 +253,8 @@ class Kindle2PDF:
         """
         for page in pages:
             for child in page["children"]:
+                transform = [_ * 72 / self.dpi for _ in child["transform"]]
+
                 if child["type"] == "run":
                     font = None
                     for font in fonts:
@@ -259,42 +272,42 @@ class Kindle2PDF:
 
                     svg_content = f"""<?xml version="1.0" standalone="no"?>
                     <svg version="1.1" xmlns="http://www.w3.org/2000/svg">
-                        <g transform="matrix({child['transform'][0]}, {child['transform'][1]}, {child['transform'][2]}, {child['transform'][3]}, {child['transform'][4]}, {child['transform'][5]})">
+                        <g transform="matrix({transform[0]}, {transform[1]}, {transform[2]}, {transform[3]}, {transform[4]}, {transform[5]})">
                             {glyphs}
                         </g>
                     </svg>
                     """
 
                     drawing = svg2rlg(io.StringIO(svg_content))
-                    renderPDF.draw(drawing, pdf_canvas, 0, A4[1])
+                    renderPDF.draw(drawing, pdf_canvas, 0, self.page_size[1])
 
                 elif child["type"] == "image":
                     with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
                         tmp.write(images[child["imageReference"]])
                         tmp.flush()
                         x = child["transform"][4]
-                        y = A4[1] - (
+                        y = self.page_size[1] - (
                             child["transform"][5]
-                            + child["rect"]["bottom"] * child["transform"][3]
+                            + child["rect"]["bottom"] * transform[3]
                         )
-                        width = child["rect"]["right"] * child["transform"][0]
-                        height = child["rect"]["bottom"] * child["transform"][3]
+                        width = child["rect"]["right"] * transform[0]
+                        height = child["rect"]["bottom"] * transform[3]
                         pdf_canvas.drawImage(
                             image=tmp.name, x=x, y=y, width=width, height=height
                         )
 
             pdf_canvas.showPage()
 
-    def render_book(self, output_path: str) -> None:
+    def render_book(self, output_path: Optional[str]) -> None:
         """
         Renders the entire book and saves it to the specified output path.
 
         Args:
-            output_path (str): The path to save the output PDF file.
+            output_path (str): The path to save the PDF file to (automatically generated if None).
         """
         start_pos = 0
         num_pages = 10
-        pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
+        pdf_canvas = None
 
         with tqdm() as progress:
             while True:
@@ -303,20 +316,26 @@ class Kindle2PDF:
                 )
                 if not jsons:
                     return
+
                 page_data = None
                 for page_data in jsons:
                     if page_data.startswith("page_data_0_"):
                         break
+
+                if pdf_canvas is None:
+                    if output_path is None:
+                        output_path = f"{jsons['metadata.json']['bookTitle']}.pdf"
+                    pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
+
                 self.render_pdf(
                     pages=jsons[page_data],
                     fonts=jsons["glyphs.json"],
                     images=images,
                     pdf_canvas=pdf_canvas,
                 )
+
                 start_pos = jsons[page_data][-1]["endPositionId"] + 1
-                progress.total = (
-                    progress.total or jsons["metadata.json"]["lastPositionId"]
-                )
+                progress.total = jsons["metadata.json"]["lastPositionId"]
                 progress.n = start_pos
                 progress.refresh()
                 if start_pos > jsons["metadata.json"]["lastPositionId"]:
@@ -325,11 +344,31 @@ class Kindle2PDF:
         pdf_canvas.save()
 
 
-if __name__ == "__main__":
+def main() -> int:
+    """
+    Main function to convert a Kindle book to a PDF file.
+
+    Args:
+        asin (str): The ASIN of the book to convert.
+        output (str): The path to save the PDF file to.
+        font_size (int): The font size to use for rendering the book.
+
+    Returns:
+        int: The exit status of the conversion process.
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--asin", help="ASIN of the book to convert")
-    parser.add_argument("--output", help="Output PDF file")
-    parser.add_argument("--font-size", help="Font size to use for rendering", default=12)
+    parser.add_argument("asin", help="ASIN of the book to convert")
+    parser.add_argument("--output", help="Optional output PDF file path")
+    parser.add_argument(
+        "--font-size", help="Font size to use for rendering", default=12
+    )
     args = parser.parse_args()
     kindle2pdf = Kindle2PDF(asin=args.asin, font_size=args.font_size)
+    if not kindle2pdf.session:
+        return 1
     kindle2pdf.render_book(output_path=args.output)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

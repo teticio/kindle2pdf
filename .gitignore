@@ -1,3 +1,5 @@
 .venv
 .vscode
-output.pdf
+__pycache__
+dist
+*.pdf
