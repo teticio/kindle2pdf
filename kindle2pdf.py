@@ -383,8 +383,6 @@ class Kindle2PDF:
                     pdf_canvas=pdf_canvas,
                     progress=progress,
                 )
-                progress.n = end_pos
-                progress.refresh()
                 start_pos = end_pos + 1
 
         pdf_canvas.save()
