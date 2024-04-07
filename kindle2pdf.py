@@ -5,6 +5,7 @@ Kindle to PDF converter.
 import argparse
 import io
 import json
+import logging
 import sys
 import tarfile
 import tempfile
@@ -23,6 +24,12 @@ from reportlab.lib.pagesizes import A4
 from reportlab.graphics import renderPDF
 from svglib.svglib import svg2rlg
 from tqdm.auto import tqdm
+
+logger = logging.getLogger("kindle2pdf")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+logger.addHandler(handler)
 
 
 class Kindle2PDF:
@@ -61,8 +68,8 @@ class Kindle2PDF:
         Starts a new reading session by authenticating with Amazon and retrieving session tokens.
 
         Returns:
-            dict: A dictionary containing session information such as version, auth, headers,
-            and cookies.
+            dict: A dictionary containing session information (title, version, end_pos, auth,
+            headers, and cookies).
         """
         cookies = chrome(domain_name="amazon.com")
 
@@ -85,7 +92,7 @@ class Kindle2PDF:
             timeout=60,
         )
         if response.status_code != 200:
-            print(
+            logger.error(
                 "Ensure you have logged in recently to https://read.amazon.com in Chrome."
             )
             return {}
@@ -109,7 +116,7 @@ class Kindle2PDF:
         response = response.json()
 
         if not response.get("isOwned", False):
-            print(f"Book {self.asin} is not owned by you.")
+            logger.error("Book %s is not owned by you.", self.asin)
             return {}
         auth = response["karamelToken"]
         metadata_url = response["metadataUrl"]
@@ -121,10 +128,10 @@ class Kindle2PDF:
         ]
         response = json.loads(response)
 
-        version = response["version"]
-
         return {
-            "version": version,
+            "title": response["title"],
+            "version": response["version"],
+            "end_pos": response["endPosition"],
             "auth": auth,
             "headers": headers,
             "cookies": cookies,
@@ -168,7 +175,7 @@ class Kindle2PDF:
             "numPage": num_pages,
             "skipPageCount": 0,
             "startingPosition": start_pos,
-            "bundleImages": "true",
+            "bundleImages": "false",  # Bundling doesn't work for all books
             "token": self.session["auth"]["token"],
         }
 
@@ -190,12 +197,44 @@ class Kindle2PDF:
                     content = f.read()
                     if member.name.endswith(".json"):
                         jsons[member.name] = json.loads(content.decode("utf-8"))
-                    elif member.name.startswith("assets/"):
+                    elif member.name.startswith("assets/"):  # if bundleImages
                         images[member.name[len("assets/") :]] = content
 
+        images = images or self.download_images(manifest=jsons["manifest.json"])
         self.decrypt_images(images=images, auth=self.session["auth"])
 
         return jsons, images
+
+    def download_images(self, manifest: dict) -> dict:
+        """
+        Downloads images from the manifest.
+
+        Args:
+            manifest (dict): A dictionary containing image URLs.
+
+        Returns:
+            dict: A dictionary containing the downloaded images.
+        """
+        images = {}
+        base_url = manifest["cdn"]["baseUrl"]
+
+        for image in manifest["cdnResources"]:
+            response = requests.get(
+                base_url + "/" + image["url"] + "?" + manifest["cdn"]["authParameter"],
+                params={
+                    "token": self.session["auth"]["token"],
+                    "expiration": self.session["auth"]["expiresAt"],
+                },
+                timeout=60,
+            )
+
+            if response.status_code != 200:
+                logger.warning("Failed to download image %s.", image["url"])
+                continue
+
+            images[image["url"]] = response.content
+
+        return images
 
     @staticmethod
     def decrypt_images(images: dict, auth: dict) -> None:
@@ -240,25 +279,39 @@ class Kindle2PDF:
             )
 
     def render_pdf(
-        self, pages: dict, fonts: dict, images: dict, pdf_canvas: canvas.Canvas
-    ) -> None:
+        self,
+        jsons: list[dict],
+        images: dict,
+        pdf_canvas: canvas.Canvas,
+        progress: Optional[tqdm] = None,
+    ) -> Optional[int]:
         """
         Renders the PDF pages using the decrypted images and text.
 
         Args:
-            pages (dict): A dictionary containing page data.
-            fonts (dict): A dictionary containing font data.
+            jsons list(dict): A list of dictionaries containing book data.
             images (dict): A dictionary of decrypted images.
             pdf_canvas (canvas.Canvas): The canvas object to draw the PDF on.
+            progress (tqdm): A tqdm progress bar to update.
+
+        Returns:
+            int: The position ID of the last rendered page.
         """
+        end_pos = None
+        pages = []
+        for _ in jsons:
+            if _.startswith("page_data_0_"):
+                pages = jsons[_]
+                break
+
         for page in pages:
             for child in page["children"]:
                 transform = [_ * 72 / self.dpi for _ in child["transform"]]
 
                 if child["type"] == "run":
-                    font = None
-                    for font in fonts:
-                        if font["fontKey"] == child["fontKey"]:
+                    for _ in jsons["glyphs.json"]:
+                        if _["fontKey"] == child["fontKey"]:
+                            font = _
                             break
 
                     glyphs = ""
@@ -287,8 +340,7 @@ class Kindle2PDF:
                         tmp.flush()
                         x = transform[4]
                         y = self.page_size[1] - (
-                            transform[5]
-                            + child["rect"]["bottom"] * transform[3]
+                            transform[5] + child["rect"]["bottom"] * transform[3]
                         )
                         width = child["rect"]["right"] * transform[0]
                         height = child["rect"]["bottom"] * transform[3]
@@ -297,6 +349,12 @@ class Kindle2PDF:
                         )
 
             pdf_canvas.showPage()
+            end_pos = page["endPositionId"]
+            if progress:
+                progress.n = end_pos
+                progress.refresh()
+
+        return end_pos
 
     def render_book(self, output_path: Optional[str]) -> None:
         """
@@ -307,39 +365,27 @@ class Kindle2PDF:
         """
         start_pos = 0
         num_pages = 10
-        pdf_canvas = None
+        if output_path is None:
+            output_path = f"{self.session['title']}.pdf"
+        pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
 
-        with tqdm() as progress:
-            while True:
+        with tqdm(total=self.session["end_pos"]) as progress:
+            while start_pos <= self.session["end_pos"]:
                 jsons, images = self.render_book_pages(
                     start_pos=start_pos, num_pages=num_pages
                 )
                 if not jsons:
                     return
 
-                page_data = None
-                for page_data in jsons:
-                    if page_data.startswith("page_data_0_"):
-                        break
-
-                if pdf_canvas is None:
-                    if output_path is None:
-                        output_path = f"{jsons['metadata.json']['bookTitle']}.pdf"
-                    pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
-
-                self.render_pdf(
-                    pages=jsons[page_data],
-                    fonts=jsons["glyphs.json"],
+                end_pos = self.render_pdf(
+                    jsons=jsons,
                     images=images,
                     pdf_canvas=pdf_canvas,
+                    progress=progress,
                 )
-
-                start_pos = jsons[page_data][-1]["endPositionId"] + 1
-                progress.total = jsons["metadata.json"]["lastPositionId"]
-                progress.n = start_pos
+                progress.n = end_pos
                 progress.refresh()
-                if start_pos > jsons["metadata.json"]["lastPositionId"]:
-                    break
+                start_pos = end_pos + 1
 
         pdf_canvas.save()
 
