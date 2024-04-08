@@ -32,6 +32,10 @@ handler.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 
+class Kindle2PDFError(Exception):
+    """Base class for other Kindle2PDF exceptions"""
+
+
 class Kindle2PDF:
     """
     A class to convert Kindle book content to a PDF file.
@@ -92,10 +96,9 @@ class Kindle2PDF:
             timeout=60,
         )
         if response.status_code != 200:
-            logger.error(
+            raise Kindle2PDFError(
                 "Ensure you have logged in recently to https://read.amazon.com in Chrome."
             )
-            return {}
 
         device_session_token = response.json()["deviceSessionToken"]
 
@@ -115,9 +118,14 @@ class Kindle2PDF:
         )
         response = response.json()
 
+        if response.get("downloadRestrictionReason"):
+            code = response["downloadRestrictionReason"]["reasonCode"]
+            raise Kindle2PDFError(
+                f"Book {self.asin} is not available for download ({code})."
+            )
         if not response.get("isOwned", False):
-            logger.error("Book %s is not owned by you.", self.asin)
-            return {}
+            raise Kindle2PDFError(f"Book {self.asin} is not owned by you.")
+
         auth = response["karamelToken"]
         metadata_url = response["metadataUrl"]
 
@@ -407,10 +415,14 @@ def main() -> int:
         "--font-size", help="Font size to use for rendering", default=12
     )
     args = parser.parse_args()
-    kindle2pdf = Kindle2PDF(asin=args.asin, font_size=args.font_size)
-    if not kindle2pdf.session:
+
+    try:
+        kindle2pdf = Kindle2PDF(asin=args.asin, font_size=args.font_size)
+        kindle2pdf.render_book(output_path=args.output)
+    except Kindle2PDFError as e:
+        logger.error(e)
         return 1
-    kindle2pdf.render_book(output_path=args.output)
+
     return 0
 
 
