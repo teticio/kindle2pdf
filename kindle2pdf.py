@@ -123,8 +123,8 @@ class Kindle2PDF:
             raise Kindle2PDFError(
                 f"Book {self.asin} is not available for download ({code})."
             )
-        if not response.get("isOwned", False):
-            raise Kindle2PDFError(f"Book {self.asin} is not owned by you.")
+        if not response["isOwned"] or response["isSample"]:
+            raise Kindle2PDFError(f"Full book {self.asin} is not owned by you.")
 
         auth = response["karamelToken"]
         metadata_url = response["metadataUrl"]
@@ -347,12 +347,10 @@ class Kindle2PDF:
                     with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
                         tmp.write(images[child["imageReference"]])
                         tmp.flush()
-                        x = transform[4]
-                        y = self.page_size[1] - (
-                            transform[5] + child["rect"]["bottom"] * transform[3]
-                        )
                         width = child["rect"]["right"] * transform[0]
                         height = child["rect"]["bottom"] * transform[3]
+                        x = transform[4]
+                        y = self.page_size[1] - transform[5] - height
                         pdf_canvas.drawImage(
                             image=tmp.name, x=x, y=y, width=width, height=height
                         )
