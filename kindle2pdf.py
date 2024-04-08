@@ -317,6 +317,7 @@ class Kindle2PDF:
                 transform = [_ * 72 / self.dpi for _ in child["transform"]]
 
                 if child["type"] == "run":
+                    font = []
                     for _ in jsons["glyphs.json"]:
                         if _["fontKey"] == child["fontKey"]:
                             font = _
