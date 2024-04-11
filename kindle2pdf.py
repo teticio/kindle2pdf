@@ -353,7 +353,9 @@ class Kindle2PDF:
                     """
 
                     drawing = svg2rlg(io.StringIO(svg_content))
-                    renderPDF.draw(drawing, pdf_canvas, 0, self.page_size[1])
+                    renderPDF.draw(
+                        drawing=drawing, canvas=pdf_canvas, x=0, y=self.page_size[1]
+                    )
 
                 elif child["type"] == "image":
                     with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
