@@ -385,7 +385,7 @@ class Kindle2PDF:
             output_path (str): The path to save the PDF file to (automatically generated if None).
         """
         start_pos = 0
-        num_pages = 10
+        num_pages = 6
         if output_path is None:
             output_path = f"{self.session['title']}.pdf"
         pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
