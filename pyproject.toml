@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kindle2pdf"
-version = "0.1.8"
+version = "0.1.9"
 description = ""
 authors = ["Robert Dargavel Smith <teticio@gmail.com>"]
 readme = "README.md"

@@ -358,7 +358,9 @@ class Kindle2PDF:
                     )
 
                 elif child["type"] == "image":
-                    with tempfile.NamedTemporaryFile(delete=True, suffix=".jpg") as tmp:
+                    with tempfile.TemporaryDirectory() as tmp_dir, tempfile.NamedTemporaryFile(
+                        dir=tmp_dir, suffix=".jpg", delete=False
+                    ) as tmp:
                         tmp.write(images[child["imageReference"]])
                         tmp.flush()
                         width = child["rect"]["right"] * transform[0]

@@ -19,3 +19,7 @@ kindle2pdf B0182LFAIA
 ```
 
 To find out the ASIN of any book, you can either inspect the URL of the book in the Kindle Cloud Reader, or search for it in Amazon. You'll need to make sure that it corresponds to the edition that you own.
+
+## Troubleshooting
+
+If you get a "Permission denied" error on Windows, try closing any Chrome browsers.
