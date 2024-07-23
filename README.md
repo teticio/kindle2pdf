@@ -2,7 +2,7 @@
 
 ## Introduction
 
-A Python script to render your Kindle books as PDFs without needing a device. This is ideal if you want to read them on a ReMarkable tablet or similar.
+A Python script to render your Kindle books as PDFs without needing a device. This is ideal if you want to read them on a reMarkable tablet or similar.
 
 ## Installation
 
