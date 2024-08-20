@@ -6,6 +6,7 @@ import argparse
 import io
 import json
 import logging
+import re
 import sys
 import tarfile
 import tempfile
@@ -337,10 +338,14 @@ class Kindle2PDF:
 
                     glyphs = ""
                     for i, glyph in enumerate(child.get("glyphs", [])):
+                        path = font["glyphs"][str(glyph)].get("path", "")
+                        if not path:
+                            continue
+                        # Remove relative move commands which lead to extraneous lines
+                        path = re.sub(r"m[\d\.\,\-\s]+", "", path)
                         glyphs += f"""<g transform="translate({
                             child["xPosition"][i]}, 0) scale({child['fontSize'] / font['unitsPerEm']})">
-                            <path d="{font['glyphs'][str(glyph)].get('path', '')}" 
-                                fill="{child['textColor']}" stroke="{child['textColor']}"/>
+                            <path d="{path}" fill="{child['textColor']}" stroke="{child['textColor']}"/>
                         </g>
                         """
 
