@@ -301,18 +301,22 @@ class Kindle2PDF:
 
     def render_pdf(
         self,
-        jsons: list[dict],
+        jsons: dict,
         images: dict,
         pdf_canvas: canvas.Canvas,
+        start_pos: int,
+        book_end_pos: int,
         progress: Optional[tqdm] = None,
     ) -> Optional[int]:
         """
         Renders the PDF pages using the decrypted images and text.
 
         Args:
-            jsons list(dict): A list of dictionaries containing book data.
+            jsons (dict): A dictionary containing book data in JSON format.
             images (dict): A dictionary of decrypted images.
             pdf_canvas (canvas.Canvas): The canvas object to draw the PDF on.
+            start_pos (int): The position ID of the first page to render.
+            book_end_pos (int): The position ID of the last page in the book.
             progress (tqdm): A tqdm progress bar to update.
 
         Returns:
@@ -327,7 +331,16 @@ class Kindle2PDF:
 
         for page in pages:
             for child in page["children"]:
+                if "startPositionId" in child:
+                    for start_pos in range(start_pos, child["startPositionId"] + 1):
+                        pdf_canvas.bookmarkPage(start_pos)
+                    start_pos += 1
+
                 transform = [_ * 72 / self.dpi for _ in child["transform"]]
+                width = child["rect"]["right"] * transform[0]
+                height = child["rect"]["bottom"] * transform[3]
+                x = transform[4]
+                y = self.page_size[1] - transform[5] - height
 
                 if child["type"] == "run":
                     font = []
@@ -368,16 +381,23 @@ class Kindle2PDF:
                     ) as tmp:
                         tmp.write(images[child["imageReference"]])
                         tmp.flush()
-                        width = child["rect"]["right"] * transform[0]
-                        height = child["rect"]["bottom"] * transform[3]
-                        x = transform[4]
-                        y = self.page_size[1] - transform[5] - height
                         pdf_canvas.drawImage(
                             image=tmp.name, x=x, y=y, width=width, height=height
                         )
 
-            pdf_canvas.showPage()
+                if "link" in child and child["link"]["linkPositionId"] < book_end_pos:
+                    pdf_canvas.linkAbsolute(
+                        contents="",
+                        destinationname=child["link"]["linkPositionId"],
+                        Rect=(x, y, x + width, y + height),
+                    )
+
             end_pos = page["endPositionId"]
+            for start_pos in range(start_pos, end_pos + 1):
+                pdf_canvas.bookmarkPage(start_pos)
+            start_pos += 1
+
+            pdf_canvas.showPage()
             if progress:
                 progress.n = end_pos
                 progress.refresh()
@@ -396,22 +416,28 @@ class Kindle2PDF:
         if output_path is None:
             output_path = f"{self.session['title']}.pdf"
         pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
+        pdf_canvas.setTitle(self.session["title"])
 
         with tqdm(total=self.session["end_pos"]) as progress:
             while start_pos <= self.session["end_pos"]:
                 jsons, images = self.render_book_pages(
-                    start_pos=start_pos, num_pages=num_pages
+                    start_pos=start_pos,
+                    num_pages=num_pages,
                 )
                 if not jsons:
                     return
 
-                end_pos = self.render_pdf(
-                    jsons=jsons,
-                    images=images,
-                    pdf_canvas=pdf_canvas,
-                    progress=progress,
+                start_pos = (
+                    self.render_pdf(
+                        jsons=jsons,
+                        images=images,
+                        pdf_canvas=pdf_canvas,
+                        start_pos=start_pos,
+                        book_end_pos=self.session["end_pos"],
+                        progress=progress,
+                    )
+                    + 1
                 )
-                start_pos = end_pos + 1
 
         pdf_canvas.save()
 
