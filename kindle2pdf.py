@@ -415,6 +415,8 @@ class Kindle2PDF:
         num_pages = 6
         if output_path is None:
             output_path = f"{self.session['title']}.pdf"
+            output_path = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "", output_path)
+            output_path = output_path.strip().strip('. ')
         pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
         pdf_canvas.setTitle(self.session["title"])
 
@@ -440,6 +442,7 @@ class Kindle2PDF:
                 )
 
         pdf_canvas.save()
+        logger.info('PDF saved to "%s"', output_path)
 
 
 def main() -> int:
