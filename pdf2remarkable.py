@@ -113,7 +113,7 @@ class PDF2Remarkable:
 
     def pdf2remarkable(self, file_path: str) -> None:
         """
-        Upload PDF file sto reMarkable.
+        Upload PDF file to reMarkable Cloud.
 
         Args:
             file_path (str): Path to the PDF file
