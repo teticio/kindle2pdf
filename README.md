@@ -22,7 +22,7 @@ kindle2pdf B0182LFAIA
 
 To find out the ASIN of any book, you can either inspect the URL of the book in the Kindle Cloud Reader, or search for it in Amazon. You'll need to make sure that it corresponds to the edition that you own.
 
-If you want to upload a PDF to the reMarkable Cloud simply
+If you want to upload a PDF to the reMarkable Cloud you can add the switch `--remarkable` to `kindle2pdf` or simply
 
 ```bash
 pdf2remarkable "The Cybergypsies.pdf"

@@ -26,6 +26,8 @@ from reportlab.pdfgen import canvas
 from svglib.svglib import svg2rlg
 from tqdm.auto import tqdm
 
+from pdf2remarkable import PDF2Remarkable
+
 logger = logging.getLogger("kindle2pdf")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
@@ -404,12 +406,15 @@ class Kindle2PDF:
 
         return end_pos
 
-    def render_book(self, output_path: Optional[str]) -> None:
+    def render_book(self, output_path: Optional[str]) -> Optional[str]:
         """
         Renders the entire book and saves it to the specified output path.
 
         Args:
             output_path (str): The path to save the PDF file to (automatically generated if None).
+
+        Returns:
+            str: The path to the saved PDF file or None.
         """
         start_pos = 0
         num_pages = 6
@@ -427,7 +432,7 @@ class Kindle2PDF:
                     num_pages=num_pages,
                 )
                 if not jsons:
-                    return
+                    return None
 
                 start_pos = (
                     self.render_pdf(
@@ -443,6 +448,7 @@ class Kindle2PDF:
 
         pdf_canvas.save()
         logger.info('PDF saved to "%s"', output_path)
+        return output_path
 
 
 def main() -> int:
@@ -463,11 +469,15 @@ def main() -> int:
     parser.add_argument(
         "--font-size", help="Font size to use for rendering", default=12
     )
+    parser.add_argument("--remarkable", help="Upload the PDF to reMarkable", action="store_true")
     args = parser.parse_args()
 
     try:
+        pdf2remarkable = PDF2Remarkable() if args.remarkable else None
         kindle2pdf = Kindle2PDF(asin=args.asin, font_size=args.font_size)
-        kindle2pdf.render_book(output_path=args.output)
+        output_path = kindle2pdf.render_book(output_path=args.output)
+        if pdf2remarkable and output_path is not None:
+            pdf2remarkable.pdf2remarkable(file_path=output_path)
     except Kindle2PDFError as e:
         logger.error(e)
         return 1
