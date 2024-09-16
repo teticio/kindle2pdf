@@ -16,13 +16,13 @@ from typing import Optional
 
 import requests
 from browser_cookie3 import chrome
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from reportlab.graphics import renderPDF
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from svglib.svglib import svg2rlg
 from tqdm.auto import tqdm
 
@@ -416,7 +416,7 @@ class Kindle2PDF:
         if output_path is None:
             output_path = f"{self.session['title']}.pdf"
             output_path = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "", output_path)
-            output_path = output_path.strip().strip('. ')
+            output_path = output_path.strip().strip(". ")
         pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
         pdf_canvas.setTitle(self.session["title"])
 
@@ -457,7 +457,7 @@ def main() -> int:
     Returns:
         int: The exit status of the conversion process.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Convert Kindle books to PDF files.")
     parser.add_argument("asin", help="ASIN of the book to convert")
     parser.add_argument("--output", help="Optional output PDF file path")
     parser.add_argument(
