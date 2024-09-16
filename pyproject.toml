@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kindle2pdf"
-version = "0.2.1"
+version = "0.3.0"
 description = ""
 authors = ["Robert Dargavel Smith <teticio@gmail.com>"]
 readme = "README.md"
@@ -21,3 +21,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 kindle2pdf = "kindle2pdf:main"
+pdf2remarkable = "pdf2remarkable:main"
