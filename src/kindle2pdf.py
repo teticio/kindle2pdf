@@ -26,7 +26,7 @@ from reportlab.pdfgen import canvas
 from svglib.svglib import svg2rlg
 from tqdm.auto import tqdm
 
-from pdf2remarkable import PDF2Remarkable
+from .pdf2remarkable import PDF2Remarkable
 
 logger = logging.getLogger("kindle2pdf")
 logger.setLevel(logging.INFO)

@@ -1,9 +1,10 @@
 [tool.poetry]
 name = "kindle2pdf"
-version = "0.3.1"
+version = "0.3.2"
 description = ""
 authors = ["Robert Dargavel Smith <teticio@gmail.com>"]
 readme = "README.md"
+packages = [{ include = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -15,11 +16,10 @@ tqdm = "^4.66.2"
 requests = "^2.31.0"
 pypdf2 = "^3.0.1"
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-kindle2pdf = "kindle2pdf:main"
-pdf2remarkable = "pdf2remarkable:main"
+kindle2pdf = "src.kindle2pdf:main"
+pdf2remarkable = "src.pdf2remarkable:main"
