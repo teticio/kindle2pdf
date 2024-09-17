@@ -27,6 +27,7 @@ from svglib.svglib import svg2rlg
 from tqdm.auto import tqdm
 
 from .pdf2remarkable import PDF2Remarkable
+from .utils import sanitize_filename
 
 logger = logging.getLogger("kindle2pdf")
 logger.setLevel(logging.INFO)
@@ -419,9 +420,7 @@ class Kindle2PDF:
         start_pos = 0
         num_pages = 6
         if output_path is None:
-            output_path = f"{self.session['title']}.pdf"
-            output_path = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "", output_path)
-            output_path = output_path.strip().strip(". ")
+            output_path = sanitize_filename(f"{self.session['title']}.pdf")
         pdf_canvas = canvas.Canvas(output_path, pagesize=A4)
         pdf_canvas.setTitle(self.session["title"])
 
@@ -469,7 +468,9 @@ def main() -> int:
     parser.add_argument(
         "--font-size", help="Font size to use for rendering", default=12
     )
-    parser.add_argument("--remarkable", help="Upload the PDF to reMarkable", action="store_true")
+    parser.add_argument(
+        "--remarkable", help="Upload the PDF to reMarkable", action="store_true"
+    )
     args = parser.parse_args()
 
     try:

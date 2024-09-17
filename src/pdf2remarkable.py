@@ -15,6 +15,8 @@ from uuid import uuid4
 import PyPDF2
 import requests
 
+from .utils import sanitize_filename
+
 logger = logging.getLogger("pdf2remarkable")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
@@ -123,6 +125,8 @@ class PDF2Remarkable:
 
         reader = PyPDF2.PdfReader(io.BytesIO(pdf))
         title = reader.metadata.title
+        if not title:
+            title = sanitize_filename(os.path.splitext(os.path.basename(file_path))[0])
         self.upload_pdf_to_remarkable(pdf, title)
         logger.info(f'"{title}" uploaded to reMarkable.')
 
