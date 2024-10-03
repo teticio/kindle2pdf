@@ -337,7 +337,10 @@ class Kindle2PDF:
                 if "startPositionId" in child:
                     for start_pos in range(start_pos, child["startPositionId"] + 1):
                         pdf_canvas.bookmarkPage(start_pos)
-                    start_pos += 1
+
+                    # update start_pos to next id only if the some ids were bookmarked.
+                    # no-op otherwise
+                    start_pos = max(start_pos, child["startPositionId"] + 1)
 
                 transform = [_ * 72 / self.dpi for _ in child["transform"]]
                 width = child["rect"]["right"] * transform[0]
@@ -395,17 +398,20 @@ class Kindle2PDF:
                         Rect=(x, y, x + width, y + height),
                     )
 
-            end_pos = page["endPositionId"]
-            for start_pos in range(start_pos, end_pos + 1):
+            end_pos = page["endPositionId"] + 1
+            for start_pos in range(start_pos, end_pos):
                 pdf_canvas.bookmarkPage(start_pos)
-            start_pos += 1
+
+            # update start_pos to next id only if the some ids were bookmarked.
+            # no-op otherwise
+            start_pos = max(start_pos, end_pos)
 
             pdf_canvas.showPage()
             if progress:
                 progress.n = end_pos
                 progress.refresh()
 
-        return end_pos
+        return start_pos
 
     def render_book(self, output_path: Optional[str]) -> Optional[str]:
         """
@@ -433,16 +439,13 @@ class Kindle2PDF:
                 if not jsons:
                     return None
 
-                start_pos = (
-                    self.render_pdf(
-                        jsons=jsons,
-                        images=images,
-                        pdf_canvas=pdf_canvas,
-                        start_pos=start_pos,
-                        book_end_pos=self.session["end_pos"],
-                        progress=progress,
-                    )
-                    + 1
+                start_pos = self.render_pdf(
+                    jsons=jsons,
+                    images=images,
+                    pdf_canvas=pdf_canvas,
+                    start_pos=start_pos,
+                    book_end_pos=self.session["end_pos"],
+                    progress=progress,
                 )
 
         pdf_canvas.save()
