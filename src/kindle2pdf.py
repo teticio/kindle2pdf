@@ -11,8 +11,10 @@ import sys
 import tarfile
 import tempfile
 from base64 import b64decode
+from contextlib import nullcontext
 from time import time
 from typing import Optional
+from urllib.parse import parse_qs
 
 import requests
 from browser_cookie3 import chrome
@@ -27,7 +29,7 @@ from svglib.svglib import svg2rlg
 from tqdm.auto import tqdm
 
 from .pdf2remarkable import PDF2Remarkable
-from .utils import sanitize_filename
+from .utils import mock_requests, sanitize_filename
 
 logger = logging.getLogger("kindle2pdf")
 logger.setLevel(logging.INFO)
@@ -59,6 +61,7 @@ class Kindle2PDF:
         right_margin: float = 0.5,
         top_margin: float = 0.5,
         bottom_margin: float = 0.5,
+        refresh: bool = False,
     ) -> None:
         """
         Initializes the Kindle2PDF object with the specified ASIN and starts a reading session.
@@ -72,6 +75,7 @@ class Kindle2PDF:
             right_margin (float): The right margin of the PDF pages in inches.
             top_margin (float): The top margin of the PDF pages in inches.
             bottom_margin (float): The bottom margin of the PDF pages in inches.
+            refresh (bool): Whether to always refresh the session for reproducibility.
         """
         self.asin = asin
         self.font_size = font_size
@@ -81,6 +85,7 @@ class Kindle2PDF:
         self.right_margin = right_margin
         self.top_margin = top_margin
         self.bottom_margin = bottom_margin
+        self.refresh = refresh
         self.session = self.start_reading_session()
 
     def start_reading_session(self) -> dict:
@@ -173,7 +178,10 @@ class Kindle2PDF:
             tuple[dict, dict]: A tuple containing dictionaries of page JSON data and decrypted
             images.
         """
-        if time() > self.session["auth"]["expiresAt"] / 1000 - 5:
+        if (
+            self.refresh == True
+            or time() > self.session["auth"]["expiresAt"] / 1000 - 5
+        ):
             self.session = self.start_reading_session()
 
         params = {
@@ -242,13 +250,14 @@ class Kindle2PDF:
         images = {}
         base_url = manifest["cdn"]["baseUrl"]
 
+        params = parse_qs(manifest["cdn"]["authParameter"])
+        params["token"] = self.session["auth"]["token"]
+        params["expiration"] = self.session["auth"]["expiresAt"]
+
         for image in manifest["cdnResources"]:
             response = requests.get(
-                base_url + "/" + image["url"] + "?" + manifest["cdn"]["authParameter"],
-                params={
-                    "token": self.session["auth"]["token"],
-                    "expiration": self.session["auth"]["expiresAt"],
-                },
+                base_url + "/" + image["url"],
+                params=params,
                 timeout=60,
             )
 
@@ -474,12 +483,28 @@ def main() -> int:
     parser.add_argument(
         "--remarkable", help="Upload the PDF to reMarkable", action="store_true"
     )
+    parser.add_argument(
+        "--save-mock", help="Save mock responses for debugging", action="store_true"
+    )
+    parser.add_argument(
+        "--load-mock", help="Load mock responses for debugging", action="store_true"
+    )
     args = parser.parse_args()
 
     try:
         pdf2remarkable = PDF2Remarkable() if args.remarkable else None
-        kindle2pdf = Kindle2PDF(asin=args.asin, font_size=args.font_size)
-        output_path = kindle2pdf.render_book(output_path=args.output)
+        context = (
+            nullcontext()
+            if not args.load_mock and not args.save_mock
+            else mock_requests(load=args.load_mock)
+        )
+        with context:
+            kindle2pdf = Kindle2PDF(
+                asin=args.asin,
+                font_size=args.font_size,
+                refresh=args.load_mock or args.save_mock,
+            )
+            output_path = kindle2pdf.render_book(output_path=args.output)
         if pdf2remarkable and output_path is not None:
             pdf2remarkable.pdf2remarkable(file_path=output_path)
     except Kindle2PDFError as e:
