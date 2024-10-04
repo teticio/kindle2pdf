@@ -7,6 +7,7 @@ import json
 import re
 from collections import defaultdict
 from contextlib import contextmanager
+from typing import Dict, Generator, Optional
 from unittest.mock import patch
 
 import requests
@@ -21,7 +22,7 @@ def sanitize_filename(filename: str) -> str:
     return filename
 
 
-def hash_request(url, params=None):
+def hash_request(url: str, params: Optional[Dict] = None) -> str:
     """Creates a hash for the given URL and query parameters."""
     hash_input = url
     if params:
@@ -36,19 +37,18 @@ def hash_request(url, params=None):
 
 
 @contextmanager
-def mock_requests(cache_file="responses.jsonl", load=False):
+def mock_requests(cache_path: str = "responses.jsonl", load=False) -> Generator:
     """Mock requests.get to cache / load responses."""
     cache = defaultdict(list)
-    file_mode = "w" if not load else "r"
 
-    with open(cache_file, file_mode) as file:
+    with open(cache_path, "w" if not load else "r") as file:
         if load:
-            file.seek(0)
             for line in file:
                 entry = json.loads(line)
                 cache[entry["hash"]].append(entry["response"])
 
-        def mock_get(url, *args, **kwargs):
+        def mock_get(url: str, *args, **kwargs) -> MockResponse:
+            """Mock request.get."""
             params = kwargs.get("params")
             request_hash = hash_request(url, params=params)
             if load:
@@ -72,9 +72,7 @@ def mock_requests(cache_file="responses.jsonl", load=False):
                     text = response.text
 
                 cache[request_hash].append(text)
-                file.write(
-                    json.dumps({"hash": request_hash, "response": text}) + "\n"
-                )
+                file.write(json.dumps({"hash": request_hash, "response": text}) + "\n")
                 file.flush()
 
             return MockResponse(response.text, response.status_code)
@@ -86,13 +84,13 @@ def mock_requests(cache_file="responses.jsonl", load=False):
 class MockResponse:
     """Mock response object for requests."""
 
-    def __init__(self, text, status_code):
+    def __init__(self, text: str, status_code: int) -> None:
         self.text = text
         self.status_code = status_code
 
-    def json(self):
+    def json(self) -> Dict:
         return json.loads(self.text)
 
     @property
-    def content(self):
+    def content(self) -> bytes:
         return self.text.encode("utf-8")
