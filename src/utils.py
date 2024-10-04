@@ -73,7 +73,7 @@ def mock_requests(cache_file="responses.jsonl", load=False):
 
                 cache[request_hash].append(text)
                 file.write(
-                    json.dumps({"hash": request_hash, "response": response.text}) + "\n"
+                    json.dumps({"hash": request_hash, "response": text}) + "\n"
                 )
                 file.flush()
 
