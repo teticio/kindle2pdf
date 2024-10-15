@@ -34,6 +34,8 @@ The first time you run this, you will be asked to pair your device. Just follow 
 
 * If you get a "Permission denied" error when running `kindle2pdf` on Windows, try closing any Chrome browsers.
 
+* If you have any other problems with cookies in spite of having logged in to `https://read.amazon.com`, please check `https://github.com/borisbabic/browser_cookie3/issues`.
+
 * If you have authentication problems with `pdf2remarkable` or want to re-pair your device, delete the `.pdf2remarkable` file in your home directory and run the script again.
 
-* If you run into what looks to be a bug, you can run `kindle2pdf` with `--save-mock` and create an issue with a link to your `responses.jsonl` for debugging purposes. Any sensitive IDs or persistent tokens will have been removed.
+* Otherwise, if you run into what looks to be a bug, you can run `kindle2pdf` with `--save-mock` and create an issue with a link to your `responses.jsonl` for debugging purposes. Any sensitive IDs or persistent tokens will have been removed. Please also give details of your Operating System.

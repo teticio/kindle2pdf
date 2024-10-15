@@ -97,12 +97,12 @@ class Kindle2PDF:
             headers, and cookies).
         """
         cookies = chrome(domain_name="amazon.com")
-
-        headers = {
-            "x-amzn-sessionid": requests.utils.dict_from_cookiejar(cookies)[
-                "session-id"
-            ],
-        }
+        cookies_dict = requests.utils.dict_from_cookiejar(cookies)
+        if "session-id" not in cookies_dict:
+            raise Kindle2PDFError(
+                "Please log in to https://read.amazon.com with Chrome."
+            )
+        headers = {"x-amzn-sessionid": cookies_dict["session-id"]}
 
         params = {
             "serialNumber": "A2CTZ977SKFQZY",
@@ -118,11 +118,10 @@ class Kindle2PDF:
         )
         if response.status_code != 200:
             raise Kindle2PDFError(
-                "Ensure you have logged in recently to https://read.amazon.com in Chrome."
+                "Please log in again to https://read.amazon.com with Chrome."
             )
 
         device_session_token = response.json()["deviceSessionToken"]
-
         headers = {"x-adp-session-token": device_session_token}
 
         params = {
