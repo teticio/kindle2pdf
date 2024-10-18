@@ -16,8 +16,8 @@ from time import time
 from typing import Optional
 from urllib.parse import parse_qs
 
+import browser_cookie3
 import requests
-from browser_cookie3 import chrome
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -96,12 +96,10 @@ class Kindle2PDF:
             dict: A dictionary containing session information (title, version, end_pos, auth,
             headers, and cookies).
         """
-        cookies = chrome(domain_name="amazon.com")
+        cookies = browser_cookie3.load(domain_name="amazon.com")
         cookies_dict = requests.utils.dict_from_cookiejar(cookies)
         if "session-id" not in cookies_dict:
-            raise Kindle2PDFError(
-                "Please log in to https://read.amazon.com with Chrome."
-            )
+            raise Kindle2PDFError("Please log in to https://read.amazon.com.")
         headers = {"x-amzn-sessionid": cookies_dict["session-id"]}
 
         params = {
@@ -117,9 +115,7 @@ class Kindle2PDF:
             timeout=60,
         )
         if response.status_code != 200:
-            raise Kindle2PDFError(
-                "Please log in again to https://read.amazon.com with Chrome."
-            )
+            raise Kindle2PDFError("Please log in again to https://read.amazon.com.")
 
         device_session_token = response.json()["deviceSessionToken"]
         headers = {"x-adp-session-token": device_session_token}

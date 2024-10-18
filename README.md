@@ -14,7 +14,7 @@ pip install kindle2pdf
 
 ## Usage
 
-First you need to login to `https://read.amazon.com/` on Chrome. The Python script will automatically retreive any cookies it needs. Then, assuming you own the book with the ASIN `B0182LFAIA`, you can run the following command:
+First you need to login to `https://read.amazon.com/`. The Python script will automatically retreive any cookies it needs. Then, assuming you own the book with the ASIN `B0182LFAIA`, you can run the following command:
 
 ```bash
 kindle2pdf B0182LFAIA

@@ -12,8 +12,8 @@ import sys
 from base64 import b64encode
 from uuid import uuid4
 
-import PyPDF2
 import requests
+from pypdf import PdfReader
 
 from .utils import sanitize_filename
 
@@ -123,7 +123,7 @@ class PDF2Remarkable:
         with open(file_path, "rb") as file:
             pdf = file.read()
 
-        reader = PyPDF2.PdfReader(io.BytesIO(pdf))
+        reader = PdfReader(io.BytesIO(pdf))
         title = reader.metadata.title
         if not title:
             title = sanitize_filename(os.path.splitext(os.path.basename(file_path))[0])
