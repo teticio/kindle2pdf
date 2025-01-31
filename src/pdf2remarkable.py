@@ -106,7 +106,7 @@ class PDF2Remarkable:
         }
 
         response = requests.post(
-            "https://internal.cloud.remarkable.com/doc/v2/files",
+            "https://eu.tectonic.remarkable.com/doc/v2/files",
             headers=headers,
             data=pdf,
             timeout=300,

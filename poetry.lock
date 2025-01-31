@@ -2,13 +2,12 @@
 
 [[package]]
 name = "browser-cookie3"
-version = "0.19.1"
+version = "0.19.2"
 description = "Loads cookies from your browser into a cookiejar object so can download with urllib and other libraries the same content you see in the web browser."
 optional = false
 python-versions = "*"
 files = [
-    {file = "browser-cookie3-0.19.1.tar.gz", hash = "sha256:3031ad14b96b47ef1e4c8545f2f463e10ad844ef834dcd0ebdae361e31c6119a"},
-    {file = "browser_cookie3-0.19.1-py3-none-any.whl", hash = "sha256:114e40fe80853211d65f14bc690a7d90c4c287251593dc5767692a950a9006d4"},
+    {file = "browser_cookie3-0.19.2.tar.gz", hash = "sha256:a3f0ad68a2fd4ced74e1204868e8124ef16bcfc63c13933e9dac8a9105a89482"},
 ]
 
 [package.dependencies]
